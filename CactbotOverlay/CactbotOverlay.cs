@@ -285,11 +285,23 @@ namespace Cactbot {
       if (!notify_state_.sent_data_dir && Config.Url.Length > 0) {
         notify_state_.sent_data_dir = true;
 
+        var url = Config.Url;
+        // If file is a remote pointer, load that file explicitly so that the manifest
+        // is relative to the pointed to url and not the local file.
+        if (url.StartsWith("file:///")) {
+          var html = File.ReadAllText(new Uri(url).LocalPath);
+          var match = System.Text.RegularExpressions.Regex.Match(html, @"<meta http-equiv=""refresh"" content=""0; url=(.*)?""\/?>");
+          if (match.Groups.Count > 1) {
+            url = match.Groups[1].Value;
+          }
+        }
+
         var web = new System.Net.WebClient();
+        System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType.Ssl3 | System.Net.SecurityProtocolType.Tls | System.Net.SecurityProtocolType.Tls11 | System.Net.SecurityProtocolType.Tls12;
 
         var data_file_paths = new List<string>();
         try {
-          var data_dir_manifest = new Uri(new Uri(Config.Url), "data/manifest.txt");
+          var data_dir_manifest = new Uri(new Uri(url), "data/manifest.txt");
           var manifest_reader = new StringReader(web.DownloadString(data_dir_manifest));
           for (var line = manifest_reader.ReadLine(); line != null; line = manifest_reader.ReadLine()) {
             line = line.Trim();
@@ -318,7 +330,7 @@ namespace Cactbot {
           var file_data = new Dictionary<string, string>();
           foreach (string data_filename in data_file_paths) {
             try {
-              var file_path = new Uri(new Uri(Config.Url), "data/" + data_filename);
+              var file_path = new Uri(new Uri(url), "data/" + data_filename);
               var file_reader = new StringReader(web.DownloadString(file_path));
               file_data[data_filename] = file_reader.ReadToEnd();
             } catch (Exception e) {

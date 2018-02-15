@@ -63,12 +63,13 @@ fflogs has [a good guide](https://www.fflogs.com/help/start/) to setting up ACT 
 
 ### Installing cactbot
 
-1. Find the [latest release](https://github.com/quisquous/cactbot/releases/latest) and download the cactbot-version-number.zip file for that release.
+1. Find the [latest release](https://github.com/quisquous/cactbot/releases/latest) and download the cactbot-version-number.zip file for that release.  (You likely do *not* want either of the Source zip files.)
 2. Right click on the zip file, go to properties.  In the bottom right corner of the properties menu, click "Unblock", and then "OK" to close the menu.
-3. Unzip the release zip file.
+3. Unzip the release zip file.  (If there is no OverlayPlugin\\addons\\CactbotOverlay.dll file, you downloaded the wrong zip file.)
 4. Close ACT, if it's still running.
 5. Copy the **OverlayPlugin\\** folder from inside of the unzipped
-folder on top of your existing **C:\\...\\Advanced Combat Tracker\\OverlayPlugin\\** folder.
+folder into your existing **C:\\...\\Advanced Combat Tracker\\** folder.
+6. If you already have an existing **OverlayPlugin\\** folder, you will be prompted to confirm if you want to merge files with existing files.  Click the `Do this for the next N conflicts` checkbox and then the `Move and Replace` checkbox.  If you end up with an **OverlayPlugin\\OverlayPlugin\\** folder then you have done something wrong.
 
    The final directory structure should look something like this:
    - C:\\...\\Advanced Combat Tracker\\
@@ -110,6 +111,8 @@ If you get an error in the OverlayPlugin console similar to `Exception in SendFa
 If you get a [CAS policy](https://blogs.msdn.microsoft.com/drew/2009/12/23/xunit-and-td-net-fixing-the-attempt-was-made-to-load-an-assembly-from-a-network-location-problem/) error on starting the OverlayPlugin, such as "An attempt was made to load an assembly from a network location which would have caused the assembly to be sandboxed in previous version of the .NET Framework." then this means that you have forgotten to unblock some/all of your DLLs (either hibiyasleep or cactbot).  First, stop ACT.  Then, unblock everything; the easiest way is to unblock the original zip file and re-extract rather than unblocking every file individually.  Finally, restart ACT again.
 
 If you get an overlay plugin error similar to `Error: (overlay): Exception in SendFastRateEvents: Could not load file or assembly 'FFXIV_ACT_Plugin, Version=(version), Culture=neutral, PublicKeyToken=null' or one of its dependencies. The system cannot find the file specified.` then you likely need to unblock the ffxiv plugin.  See the instructions above for unblocking DLLs.
+
+If you get an ACT dialog that says "Invalid Plugin" and "This assembly does not have a class that implements ACT's plugin interface", then you are loading the plugin incorrectly.  Cactbot is an overlay and not a direct ACT plugin.  Plugins like **FFXIV_ACT_PLUGIN.dll** and **OverlayPlugin.dll** are ACT plugins and are loaded via ACT -> Plugins -> Plugin Listing -> Add/Enable Plugin.  Cactbot is an overlay plugin.  You load it via going to Plugins -> OverlayPlugin.dll -> New.  See the [adding overlay modules](#adding-overlay-modules) section for more details.
 
 If triggers or pieces of the UI do not work, ensure that "Disable Parsing from Network Data" is **not** checked in the FFXIV plugin settings. Network data is required for accurate trigger timing.
 

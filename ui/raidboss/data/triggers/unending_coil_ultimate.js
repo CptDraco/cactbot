@@ -25,28 +25,44 @@
       run: function(data) { data.iceDebuff = false; },
     },
     {
-      regex: /:Bahamut Prime starts using Quickmarch Trio/,
-      run: function(data) { data.resetTrio('quickmarch'); },
+      regex: /1[56]:\y{ObjectId}:Firehorn:26C5:Fireball:\y{ObjectId}:(\y{Name}):/,
+      run: function(data, matches) {
+        data.fireballs[data.naelFireballCount].push(matches[1]);
+      },
     },
     {
-      regex: /:Bahamut Prime starts using Blackfire Trio/,
-      run: function(data) { data.resetTrio('blackfire'); },
+      regex: /:26E2:Bahamut Prime starts using Quickmarch Trio/,
+      run: function(data) { if (data.resetTrio) data.resetTrio('quickmarch'); },
     },
     {
-      regex: /:Bahamut Prime starts using Fellruin Trio/,
-      run: function(data) { data.resetTrio('fellruin'); },
+      regex: /:26E3:Bahamut Prime starts using Blackfire Trio/,
+      run: function(data) { if (data.resetTrio) data.resetTrio('blackfire'); },
     },
     {
-      regex: /:Bahamut Prime starts using Heavensfall Trio/,
-      run: function(data) { data.resetTrio('heavensfall'); },
+      regex: /:26E4:Bahamut Prime starts using Fellruin Trio/,
+      run: function(data) { if (data.resetTrio) data.resetTrio('fellruin'); },
     },
     {
-      regex: /:Bahamut Prime starts using Tenstrike Trio/,
-      run: function(data) { data.resetTrio('tenstrike'); },
+      regex: /:26E5:Bahamut Prime starts using Heavensfall Trio/,
+      run: function(data) { if (data.resetTrio) data.resetTrio('heavensfall'); },
     },
     {
-      regex: /:Bahamut Prime starts using Grand Octet/,
-      run: function(data) { data.resetTrio('octet'); },
+      regex: /:26E6:Bahamut Prime starts using Tenstrike Trio/,
+      run: function(data) { if (data.resetTrio) data.resetTrio('tenstrike'); },
+    },
+    {
+      regex: /:26E7:Bahamut Prime starts using Grand Octet/,
+      run: function(data) { if (data.resetTrio) data.resetTrio('octet'); },
+    },
+    {
+      regex: /16:........:Ragnarok:26B8:Heavensfall:........:(\y{Name}):/,
+      run: function(data, matches) {
+        // This happens once during the nael transition and again during
+        // the heavensfall trio.  This should proooobably hit all 8
+        // people by the time you get to octet.
+        data.partyList = data.partyList || {};
+        data.partyList[matches[1]] = true;
+      },
     },
 
     // --- Twintania ---
@@ -66,19 +82,36 @@
           return 'buster';
       },
     },
-    { id: 'UCU Hatch Marker',
+    { // Hatch Collect
       regex: /1B:........:(\y{Name}):....:....:0076:0000:0000:0000:/,
+      run: function(data, matches) {
+        data.hatch = data.hatch || [];
+        data.hatch.push(matches[1]);
+      },
+    },
+    { id: 'UCU Hatch Marker YOU',
+      regex: /1B:........:(\y{Name}):....:....:0076:0000:0000:0000:/,
+      condition: function(data, matches) { return data.me == matches[1]; },
+      alarmText: 'Hatch on YOU',
+      tts: 'hatch',
+    },
+    {
+      id: 'UCU Hatch Callouts',
+      regex: /1B:........:(\y{Name}):....:....:0076:0000:0000:0000:/,
+      delaySeconds: 0.25,
       infoText: function(data, matches) {
-        if (data.me != matches[1])
-          return 'Hatch on ' + matches[1];
+        if (!data.hatch)
+          return;
+        var hatches = data.hatch.map(function(n) { return data.ShortName(n); }).join(', ');
+        delete data.hatch;
+        return 'Hatch: ' + hatches;
       },
-      alarmText: function(data, matches) {
-        if (data.me == matches[1])
-          return 'Hatch on YOU';
-      },
-      tts: function(data, matches) {
-        if (data.me == matches[1])
-          return 'hatch';
+    },
+    { // Hatch Cleanup
+      regex: /1B:........:(\y{Name}):....:....:0076:0000:0000:0000:/,
+      delaySeconds: 5,
+      run: function(data) {
+        delete data.hatch;
       },
     },
     { id: 'UCU Twintania P2',
@@ -150,14 +183,14 @@
     { id: 'UCU Nael Quote 9',
       regex: /From on high I descend, a hail of stars to bring/,
       durationSeconds: 9,
-      infoText: function(data) { return 'Spread => In => Spread'; },
-      tts: 'spread then in then spread',
+      infoText: function(data) { return 'Spread => In'; },
+      tts: 'spread then in',
     },
     { id: 'UCU Nael Quote 10',
       regex: /From red moon I descend, a hail of stars to bring/,
       durationSeconds: 9,
-      infoText: function(data) { return 'In => Spread => Spread'; },
-      tts: 'in then spread then spread',
+      infoText: function(data) { return 'In => Spread'; },
+      tts: 'in then spread',
     },
     { id: 'UCU Nael Quote 11',
       regex: /From red moon I draw steel, in my descent to bare/,
@@ -195,23 +228,23 @@
       regex: /:(\y{Name}) gains the effect of Doom from .*? for (\y{Float}) Seconds/,
       condition: function(data, matches) { return data.me == matches[1]; },
       durationSeconds: function(data, matches) {
-        if (data.ParseLocaleFloat(matches[2]) < 9)
+        if (data.ParseLocaleFloat(matches[2]) <= 6)
           return 3;
-        if (data.ParseLocaleFloat(matches[2]) < 14)
+        if (data.ParseLocaleFloat(matches[2]) <= 10)
           return 6;
         return 9;
       },
       alarmText: function(data, matches) {
-        if (data.ParseLocaleFloat(matches[2]) < 9)
+        if (data.ParseLocaleFloat(matches[2]) <= 6)
           return 'Doom #1 on YOU';
-        if (data.ParseLocaleFloat(matches[2]) < 14)
+        if (data.ParseLocaleFloat(matches[2]) <= 10)
           return 'Doom #2 on YOU';
         return 'Doom #3 on YOU';
       },
       tts: function(data, matches) {
-        if (data.ParseLocaleFloat(matches[2]) < 9)
+        if (data.ParseLocaleFloat(matches[2]) <= 6)
           return '1';
-        if (data.ParseLocaleFloat(matches[2]) < 14)
+        if (data.ParseLocaleFloat(matches[2]) <= 10)
           return '2';
         return '3';
       },
@@ -249,29 +282,29 @@
           var name = data.dooms[data.doomCount];
         data.doomCount++;
         if (name)
-          return 'Cleanse #' + data.doomCount + ': ' + name;
+          return 'Cleanse #' + data.doomCount + ': ' + data.ShortName(name);
       },
     },
     { id: 'UCU Nael Fireball 1',
       regex: /:Ragnarok:26B8:/,
       delaySeconds: 35,
       infoText: function(data) {
-        if (data.fireball1)
+        if (data.naelFireballCount >= 1)
           return;
         return 'Fire IN';
       },
       tts: function(data) {
-        if (data.fireball1)
+        if (data.naelFireballCount >= 1)
           return;
         return 'fire in';
       },
-      run: function(data) { data.fireball1 = true; },
+      run: function(data) { data.naelFireballCount = 1; },
     },
     { id: 'UCU Nael Fireball 2',
       regex: /:Ragnarok:26B8:/,
       delaySeconds: 51,
       infoText: function(data) {
-        if (data.fireball2)
+        if (data.naelFireballCount >= 2)
           return;
         if (!data.iceDebuff)
           return 'Fire OUT';
@@ -282,70 +315,77 @@
         // stack.  Therefore, make sure you stack.  It's possible you
         // can survive until fire 3 happens, but it's not 100%.
         // See: https://www.reddit.com/r/ffxiv/comments/78mdwd/bahamut_ultimate_mechanics_twin_and_nael_minutia/
-        if (data.fireball2)
+        if (data.naelFireballCount >= 2)
           return;
-        if (data.iceDebuff)
+        if (data.fireballs[1].indexOf(data.me) == -1)
           return 'Fire OUT: Be in it';
       },
       tts: function(data) {
-        if (data.fireball2)
+        if (data.naelFireballCount >= 2)
           return;
-        if (data.iceDebuff)
+        if (data.fireballs[1].indexOf(data.me) == -1)
           return 'fire out; go with';
         return 'fire out'
       },
-      run: function(data) { data.fireball2 = true; },
+      run: function(data) { data.naelFireballCount = 2; },
     },
     { id: 'UCU Nael Fireball 3',
       regex: /:Ragnarok:26B8:/,
       delaySeconds: 77,
       infoText: function(data) {
-        if (data.fireball3)
+        if (data.naelFireballCount >= 3)
           return;
-        if (!data.fireDebuff)
-          return 'Thunder -> Fire IN';
+        var tookTwo = data.fireballs[1].filter(function(p) { return data.fireballs[2].indexOf(p) >= 0; });
+        if (tookTwo.indexOf(data.me) >= 0)
+          return;
+        var str = 'Thunder -> Fire IN';
+        if (tookTwo.length > 0)
+          str += ' (' + tookTwo.map(function(n) { return data.ShortName(n); }).join(', ') + ' out)';
+        return str;
       },
       alertText: function(data) {
-        if (data.fireball3)
+        if (data.naelFireballCount >= 3)
           return;
         // If you were the person with fire tether #2, then you could
-        // have fire debuff here and need to no stack.
-        if (data.fireDebuff)
+        // have fire debuff here and need to not stack.
+        if (data.fireballs[1].indexOf(data.me) >= 0 && data.fireballs[2].indexOf(data.me) >= 0)
           return 'Thunder -> Fire IN: AVOID!';
       },
       tts: function(data) {
-        if (data.fireball3)
+        if (data.naelFireballCount >= 3)
           return;
-        if (data.fireDebuff)
+        if (data.fireballs[1].indexOf(data.me) >= 0 && data.fireballs[2].indexOf(data.me) >= 0)
           return 'avoid fire in';
         return 'fire in'
       },
-      run: function(data) { data.fireball3 = true; },
+      run: function(data) { data.naelFireballCount = 3; },
     },
     { id: 'UCU Nael Fireball 4',
       regex: /:Ragnarok:26B8:/,
       delaySeconds: 98,
       infoText: function(data) {
-        if (data.fireball4)
+        if (data.naelFireballCount >= 4)
           return;
         if (!data.fireDebuff)
           return 'Fire IN -> Thunder';
       },
       alertText: function(data) {
-        if (data.fireball4)
+        if (data.naelFireballCount >= 4)
           return;
-        // Not sure this is possible.
+        // It's possible that you can take 1, 2, and 3 even if nobody dies with
+        // careful ice debuff luck.  However, this means you probably shouldn't
+        // take 4.  Just use the debuff here and not the fireball count.
         if (data.fireDebuff)
           return 'Fire IN: AVOID! -> Thunder';
       },
       tts: function(data) {
-        if (data.fireball4)
+        if (data.naelFireballCount >= 4)
           return;
         if (data.fireDebuff)
           return 'avoid fire in';
         return 'fire in';
       },
-      run: function(data) { data.fireball4 = true; },
+      run: function(data) { data.naelFireballCount = 4; },
     },
     {
       regex: /:(Iceclaw:26C6|Thunderwing:26C7|Fang of Light:26CA|Tail of Darkness:26C9|Firehorn:26C5):.*:(\y{Float}):(\y{Float}):\y{Float}:$/,
@@ -392,6 +432,7 @@
     },
     { id: 'UCU Nael Dragon Dive Marker Me',
       regex: /1B:........:(\y{Name}):....:....:0014:0000:0000:0000:/,
+      condition: function(data) { return !data.trio; },
       alarmText: function(data, matches) {
         data.naelDiveMarkerCount = data.naelDiveMarkerCount || 0;
         if (matches[1] != data.me)
@@ -409,24 +450,115 @@
     },
     { id: 'UCU Nael Dragon Dive Marker Others',
       regex: /1B:........:(\y{Name}):....:....:0014:0000:0000:0000:/,
+      condition: function(data) { return !data.trio; },
       infoText: function(data, matches) {
         data.naelDiveMarkerCount = data.naelDiveMarkerCount || 0;
         if (matches[1] == data.me)
           return;
         var num = data.naelDiveMarkerCount + 1;
-        return 'Dive #' + num + ': ' + matches[1];
+        return 'Dive #' + num + ': ' + data.ShortName(matches[1]);
       },
     },
     { id: 'UCU Nael Dragon Dive Marker Counter',
       regex: /1B:........:(\y{Name}):....:....:0014:0000:0000:0000:/,
+      condition: function(data) { return !data.trio; },
       run: function(data) {
         data.naelDiveMarkerCount++;
+      },
+    },
+    { // Octet marker tracking (77=nael, 14=dragon, 29=baha, 2A=twin)
+      regex: /1B:........:(\y{Name}):....:....:00(?:77|14|29):0000:0000:0000:/,
+      condition: function(data) { return data.trio == 'octet'; },
+      run: function(data, matches) {
+        data.octetMarker = data.octetMarker || [];
+        data.octetMarker.push(matches[1]);
+        if (data.octetMarker.length != 7)
+          return;
+
+        var partyList = Object.keys(data.partyList);
+
+        if (partyList.length != 8) {
+          console.error('Octet error: bad party list size: ' + JSON.stringify(partyList));
+          return;
+        }
+        var uniq_dict = {};
+        for (var i = 0; i < data.octetMarker.length; ++i) {
+          uniq_dict[data.octetMarker[i]] = true;
+          if (partyList.indexOf(data.octetMarker[i]) < 0) {
+            console.error('Octet error: could not find ' + data.octetMarker[i] + ' in ' + JSON.stringify(partyList));
+            return;
+          }
+        }
+        var uniq = Object.keys(uniq_dict);
+        // If the number of unique folks who took markers is not 7, then
+        // somebody has died and somebody took two.  Could be on anybody.
+        if (uniq.length != 7)
+          return;
+
+        var remainingPlayers = partyList.filter(function(p) {
+          return data.octetMarker.indexOf(p) < 0;
+        });
+        if (remainingPlayers.length != 1) {
+          // This could happen if the party list wasn't unique.
+          console.error('Octet error: failed to find player, ' + JSON.stringify(partyList) + ' ' + JSON.stringify(data.octetMarker));
+          return;
+        }
+
+        // Finally, we found it!
+        data.lastOctetMarker = remainingPlayers[0];
+      }
+    },
+    { id: 'UCU Octet Nael Marker',
+      regex: /1B:........:(\y{Name}):....:....:0077:0000:0000:0000:/,
+      condition: function(data) { return data.trio == 'octet'; },
+      infoText: function(data, matches) {
+        return data.octetMarker.length + ': ' + data.ShortName(matches[1]) + ' (nael)';
+      },
+    },
+    { id: 'UCU Octet Dragon Marker',
+      regex: /1B:........:(\y{Name}):....:....:0014:0000:0000:0000:/,
+      condition: function(data) { return data.trio == 'octet'; },
+      infoText: function(data, matches) {
+        return data.octetMarker.length + ': ' + data.ShortName(matches[1]);
+      },
+    },
+    { id: 'UCU Octet Baha Marker',
+      regex: /1B:........:(\y{Name}):....:....:0029:0000:0000:0000:/,
+      condition: function(data) { return data.trio == 'octet'; },
+      infoText: function(data, matches) {
+        return data.octetMarker.length + ': ' + data.ShortName(matches[1]) + ' (baha)';
+      },
+    },
+    { id: 'UCU Octet Twin Marker',
+      regex: /1B:........:(\y{Name}):....:....:0029:0000:0000:0000:/,
+      condition: function(data) { return data.trio == 'octet'; },
+      delaySeconds: 0.5,
+      alarmText: function(data) {
+        if (data.lastOctetMarker == data.me)
+          return 'YOU Stack for Twin';
+      },
+      infoText: function(data) {
+        if (!data.lastOctetMarker)
+          return '8: ??? (twin)';
+        // If this person is not alive, then everybody should stack,
+        // but tracking whether folks are alive or not is a mess.
+        if (data.lastOctetMarker != data.me)
+          return '8: ' + data.ShortName(data.lastOctetMarker) + ' (twin)';
+      },
+      tts: function(data) {
+        if (!data.lastOctetMarker || data.lastOctetMarker == data.me)
+          return 'stack for twin';
       },
     },
     { id: 'UCU Twister Dives',
       regex: /:Twintania:26B2:Twisting Dive:/,
       alertText: 'Twisters',
       tts: 'twisters',
+    },
+    { id: 'UCU Bahamut Gigaflare',
+      regex: /14:26D6:Bahamut Prime starts using Gigaflare/,
+      alertText: 'Gigaflare',
+      tts: 'gigaflare',
     },
     {
       id: 'UCU Megaflare Stack Me',
@@ -442,20 +574,24 @@
       },
     },
     {
-      id: 'UCU Fellruin Tower',
+      id: 'UCU Megaflare Tower',
       regex: /1B:........:(\y{Name}):....:....:0027:0000:0000:0000:/,
-      alertText: function(data) {
-        if (data.trio == 'fellruin' && data.megaStack.length == 4) {
-          if (data.megaStack.indexOf(data.me) == -1) {
-            return 'Find Your Tower';
-          }
-        }
+      infoText: function(data) {
+        if (data.trio != 'fellruin' && data.trio != 'octet' || data.megaStack.length != 4)
+          return;
+        if (data.megaStack.indexOf(data.me) >= 0)
+          return;
+        if (data.trio == 'fellruin')
+          return 'Tower, bait hypernova';
+        if (!data.lastOctetMarker || data.lastOctetMarker == data.me)
+          return 'Bait Twin, then tower';
+        return 'Get in a far tower';
       },
       tts: function(data) {
-        if (data.trio == 'fellruin' && data.megaStack.length == 4) {
-          if (data.megaStack.indexOf(data.me) == -1) {
-            return 'tower';
-          }
+        if (data.trio != 'fellruin' && data.trio != 'octet' || data.megaStack.length != 4)
+          return;
+        if (data.megaStack.indexOf(data.me) == -1) {
+          return 'tower';
         }
       },
     },
@@ -528,6 +664,23 @@
         if (data.oneTimeSetup)
           return;
         data.oneTimeSetup = true;
+
+        // TODO: a late white puddle can cause dragons to get seen for the next
+        // phase so clear them again here.  Probably data for triggers needs
+        // to be cleared at more reliable times.
+        delete data.naelDragons;
+        delete data.seenDragon;
+        delete data.naelMarks;
+        delete data.wideThirdDive;
+        delete data.unsafeThirdMark;
+
+        data.naelFireballCount = 0;
+        data.fireballs = {
+          1: [],
+          2: [],
+          3: [],
+          4: [],
+        };
 
         data.resetTrio = function(trio) {
           this.trio = trio;

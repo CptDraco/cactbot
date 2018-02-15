@@ -60,6 +60,7 @@ class CactbotLanguage {
       TotalEclipse: '1CD5',
       Clemency: 'DD5',
       ShieldBash: '10',
+      ShieldSwipe: '19',
       FightOrFlight: '14',
       BloodWeapon: 'E29',
       Souleater: 'E30',
@@ -98,6 +99,24 @@ class CactbotLanguage {
       IronChariot: '26BB',
       WingsOfSalvation: '26CA',
       ChainLightning: '26C8',
+      ThermionicBurst: '26B9',
+
+      // Byakko Ex
+      ByaSweepTheLeg: '27DB',
+      ByaFireAndLightning: '27DE',
+      ByaDistantClap: '27DD',
+      ByaAratama: '27F6', // Popping Unrelenting Anguish bubbles
+      ByaVacuumClaw: '27E9', // Stepping in growing orb
+      ByaImperialGuard: '27F1', // Midphase line attack
+      ByaOminousWind: '27EC', // Pink bubble collision
+      ByaHundredfoldHavoc1: '27E5', // Lightning Puddles
+      ByaHundredfoldHavoc2: '27E6', // Lightning Puddles
+
+      // o7s
+      MissileExplosion: '2782',
+      UltrosStoneskin: '2AB5',
+      TheHeat: '2777',
+      ChainCannon: '278F',
     });
   }
 
@@ -141,6 +160,8 @@ class CactbotLanguage {
   };
 
   abilityRegex(abilityId, attacker, target, flags) {
+    if (!abilityId)
+      abilityId = '[^:]*';
     if (!attacker)
       attacker = '[^:]*';
     // type:attackerId:attackerName:abilityId:abilityName:targetId:targetName:flags:

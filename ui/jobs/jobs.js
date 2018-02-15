@@ -18,6 +18,10 @@ var Options = {
 
   ShowRdmProcs: true,
 
+  JustBuffTracker: false,
+
+  PerBuffOptions: {},
+
   RdmCastTime: 1.94 + 0.5,
   WarGcd: 2.38,
   PldGcd: 2.43,
@@ -30,7 +34,8 @@ var Options = {
   BigBuffBorderSize: 1,
 
   FarThresholdOffence: 24,
-  DRKLowMPThreshold: 4800,
+  DrkLowMPThreshold: 4800,
+  PldLowMPThreshold: 2880,
   TPInvigorateThreshold: 600,
   LowHealthThresholdPercent: 0.2,
   MidHealthThresholdPercent: 0.8,
@@ -55,6 +60,8 @@ var kTwinSnakes = null;
 var kDemolish = null;
 var kBluntDebuff = null;
 var kComboBreakers = null;
+var kPldShieldSwipe = null;
+var kPldBlock = null;
 var kWellFedZoneRegex = null;
 
 class ComboTracker {
@@ -210,6 +217,8 @@ function setupRegexes() {
   kTwinSnakes = gLang.youUseAbilityRegex(gLang.kAbility.TwinSnakes);
   kDemolish = gLang.youUseAbilityRegex(gLang.kAbility.Demolish);
   kBluntDebuff = gLang.gainsEffectRegex(gLang.kEffect.BluntResistDown);
+  kPldShieldSwipe = gLang.youUseAbilityRegex(gLang.kAbility.ShieldSwipe);
+  kPldBlock = gLang.abilityRegex(null, null, gLang.playerName, '[^:]*05');
   kWellFedZoneRegex = Regexes.AnyOf(Options.WellFedZones.map(function(x) { return gLang.kZone[x]; }));
 
 // Full skill names of abilities that break combos.
@@ -407,7 +416,7 @@ function setupBuffTracker() {
       icon: kIconBuffFoes,
       // Light Purple.
       borderColor: '#F272F2',
-      sortKey: 0.5,
+      sortKey: 10,
       side: 'left',
       text: 'elapsed',
     },
@@ -439,6 +448,8 @@ class Bars {
     this.combo = 0;
     this.comboTimer = null;
     this.smnChanneling = false;
+    this.pldLastSwipe = 0;
+    this.pldLastBlock = 0;
   }
 
   UpdateJob() {
@@ -505,17 +516,28 @@ class Bars {
     this.o.rightBuffsList.toward = "right down";
     this.o.rightBuffsList.elementwidth = this.options.BigBuffIconWidth + 2;
 
-    this.o.leftBuffsContainer = document.createElement("div");
-    this.o.leftBuffsContainer.id = 'left-side-icons';
-    barsContainer.appendChild(this.o.leftBuffsContainer);
+    if (this.options.JustBuffTracker) {
+      // Just alias these two together so the rest of the code doesn't have
+      // to care that they're the same thing.
+      this.o.leftBuffsList = this.o.rightBuffsList;
+      this.o.rightBuffsList.rowcolsize = 20;
+      this.o.rightBuffsList.maxnumber = 20;
+      // Hoist the buffs up to hide everything else.
+      barsLayoutContainer.appendChild(this.o.rightBuffsContainer);
+      barsLayoutContainer.classList.add('justbuffs');
+    } else {
+      this.o.leftBuffsContainer = document.createElement("div");
+      this.o.leftBuffsContainer.id = 'left-side-icons';
+      barsContainer.appendChild(this.o.leftBuffsContainer);
 
-    this.o.leftBuffsList = document.createElement('widget-list');
-    this.o.leftBuffsContainer.appendChild(this.o.leftBuffsList);
+      this.o.leftBuffsList = document.createElement('widget-list');
+      this.o.leftBuffsContainer.appendChild(this.o.leftBuffsList);
 
-    this.o.leftBuffsList.rowcolsize = 7;
-    this.o.leftBuffsList.maxnumber = 7;
-    this.o.leftBuffsList.toward = "left down";
-    this.o.leftBuffsList.elementwidth = this.options.BigBuffIconWidth + 2;
+      this.o.leftBuffsList.rowcolsize = 7;
+      this.o.leftBuffsList.maxnumber = 7;
+      this.o.leftBuffsList.toward = "left down";
+      this.o.leftBuffsList.elementwidth = this.options.BigBuffIconWidth + 2;
+    }
 
     if (isCraftingJob(this.job)) {
       this.o.cpContainer = document.createElement("div");
@@ -854,20 +876,31 @@ class Bars {
       this.o.oathTextBox.appendChild(this.o.oathText);
       this.o.oathText.classList.add("text");
 
-      var goreContainer = document.createElement("div");
-      goreContainer.id = 'pld-procs';
-      barsContainer.appendChild(goreContainer);
+      var procContainer = document.createElement("div");
+      procContainer.id = 'pld-procs';
+      barsContainer.appendChild(procContainer);
 
       this.o.goreBox = document.createElement("timer-box");
-      goreContainer.appendChild(this.o.goreBox);
-      this.o.goreBox.style = "empty";
+      procContainer.appendChild(this.o.goreBox);
+      this.o.goreBox.id = 'pld-procs-gore';
       this.o.goreBox.fg = computeBackgroundColorFrom(this.o.goreBox, 'pld-color-gore');
-      this.o.goreBox.bg = 'black';
-      this.o.goreBox.toward = "bottom";
+      this.o.goreBox.bg = 'black'
+      this.o.goreBox.style = 'empty';
+      this.o.goreBox.toward = 'bottom';
       this.o.goreBox.threshold = this.options.PldGcd * 3 + 0.3;
-      this.o.goreBox.hideafter = "";
+      this.o.goreBox.hideafter = '';
       this.o.goreBox.roundupthreshold = false;
       this.o.goreBox.valuescale = this.options.PldGcd;
+
+      this.o.swipeBox = document.createElement("timer-box");
+      procContainer.appendChild(this.o.swipeBox);
+      this.o.swipeBox.id = 'pld-procs-swipe';
+      this.o.swipeBox.style = 'empty';
+      this.o.swipeBox.bg = 'black';
+      this.o.swipeBox.toward = 'bottom';
+      this.o.swipeBox.threshold = 1000;
+      this.o.swipeBox.hideafter = 0;
+      this.o.swipeBox.roundupthreshold = false;
 
       // TODO: add shield swipe proc box
     } else if (this.job == "MNK") {
@@ -1248,6 +1281,50 @@ class Bars {
       this.o.rdmProcImpact.duration = Math.max(0, seconds - this.options.RdmCastTime);
   }
 
+  OnPldBlock() {
+    this.pldLastBlock = Date.now();
+    // How long a swipe takes to be able to be recast.
+    var kSwipeRecastMs = 15000;
+    // How long a block proc lasts from damage to losing proc.
+    var kBlockProcMs = 5500;
+    // Amount of extra reaction time to react to a block.
+    var kIgnoreSlopMs = 200;
+    // Amount of time to make the swipe box bigger earlier
+    // when there is a block during a swipe cooldown but a
+    // swipe can still be used.
+    var kBlockSlopMs = 700;
+
+    var msSinceLastSwipe = this.pldLastBlock - this.pldLastSwipe;
+    if (msSinceLastSwipe < kSwipeRecastMs - kBlockProcMs + kIgnoreSlopMs) {
+      // Swipe too recent, ignore this.
+      return;
+    } else if (msSinceLastSwipe >= kSwipeRecastMs) {
+      // Swipe long ago, full block duration, big box.
+      this.o.swipeBox.duration = 0;
+      this.o.swipeBox.duration = kBlockProcMs / 1000;
+      this.o.swipeBox.threshold = 1000;
+    } else {
+      // Swipe recent, but enough time to still swipe from this block.
+      // Make box small but color it like a block.  It will get big
+      // when the swipe becomes usable (although the window could be
+      // quite small).
+      this.o.swipeBox.duration = 0;
+      this.o.swipeBox.duration = kBlockProcMs / 1000;
+      var msUntilSwipeAvailable = kSwipeRecastMs - msSinceLastSwipe;
+      this.o.swipeBox.threshold = (kBlockProcMs + kBlockSlopMs - msUntilSwipeAvailable) / 1000;
+    }
+    this.o.swipeBox.fg = computeBackgroundColorFrom(this.o.swipeBox, 'pld-color-block');
+  }
+
+  OnPldShieldSwipe() {
+    // Small countdown for swipe.
+    this.pldLastSwipe = Date.now();
+    this.o.swipeBox.duration = 0;
+    this.o.swipeBox.duration = 15;
+    this.o.swipeBox.threshold = -1;
+    this.o.swipeBox.fg = computeBackgroundColorFrom(this.o.swipeBox, 'pld-color-swipe');
+  }
+
   OnComboChange(skill) {
     if (this.job == "RDM") {
       if (this.o.rdmCombo1 == null || this.o.rdmCombo2 == null || this.o.rdmCombo3 == null)
@@ -1337,7 +1414,9 @@ class Bars {
     if (this.job == 'RDM' || this.job == 'BLM' || this.job == 'SMN' || this.job == 'ACN')
       far = this.options.FarThresholdOffence;
     else if (this.job == 'DRK')
-      lowMP = this.options.DRKLowMPThreshold;
+      lowMP = this.options.DrkLowMPThreshold;
+    else if (this.job == 'PLD')
+      lowMP = this.options.PldLowMPThreshold;
 
     if (far >= 0 && this.distance > far)
       this.o.manaBar.fg = computeBackgroundColorFrom(this.o.manaBar, 'mp-color.far');
@@ -1463,33 +1542,40 @@ class Bars {
   }
 
   OnBigBuff(name, seconds, settings) {
+    var overrides = this.options.PerBuffOptions[name] || {};
+    var borderColor = overrides.borderColor || settings.borderColor;
+    var icon = overrides.icon || settings.icon;
+    var side = overrides.side || settings.side;
+    var sortKey = overrides.sortKey || settings.sortKey;
+    if (overrides.hide)
+      return;
+
     var aura = this.MakeAuraTimerIcon(
         name, seconds,
         this.options.BigBuffIconWidth, this.options.BigBuffIconHeight,
         settings.text,
         this.options.BigBuffBarHeight, this.options.BigBuffTextHeight,
         this.options.BigBuffBorderSize,
-        settings.borderColor, settings.borderColor,
-        settings.icon);
+        borderColor, borderColor,
+        icon);
     var list = this.o.rightBuffsList;
-    if (settings.side && settings.side == 'left' && this.o.leftBuffsList)
+    if (side && side == 'left' && this.o.leftBuffsList)
       list = this.o.leftBuffsList;
-    list.addElement(name, aura, settings.sortKey);
+    list.addElement(name, aura, sortKey);
     var that = this;
     window.clearTimeout(settings.timeout);
     if (seconds >= 0) {
       settings.timeout = window.setTimeout(function() {
         that.o.rightBuffsList.removeElement(name);
+        that.o.leftBuffsList.removeElement(name);
       }, seconds * 1000);
     }
   }
 
   OnLoseBigBuff(name, settings) {
     window.clearTimeout(settings.timeout);
-    var list = this.o.rightBuffsList;
-    if (settings.side && settings.side == 'left' && this.o.leftBuffsList)
-      list = this.o.leftBuffsList;
-    list.removeElement(name);
+    this.o.rightBuffsList.removeElement(name);
+    this.o.leftBuffsList.removeElement(name);
   }
 
   OnPlayerChanged(e) {
@@ -1759,6 +1845,16 @@ class Bars {
           continue;
         }
       }
+      if (this.job == 'PLD') {
+        if (log.search(kPldShieldSwipe) >= 0) {
+          this.OnPldShieldSwipe();
+          continue;
+        }
+        if (log.search(kPldBlock) >= 0) {
+          this.OnPldBlock();
+          continue;
+        }
+      }
 
       // For learning boss ability codes.
       //if (log.search(/Exdeath (starts using Unknown_|readies |begins casting )/) >= 0)
@@ -1790,8 +1886,9 @@ class Bars {
 
 var gBars;
 
-document.addEventListener("onGameExistsEvent", function (e) {
-  if (!gBars) gBars = new Bars(Options);
+window.addEventListener("load", function (e) {
+  if (!gBars)
+    gBars = new Bars(Options);
 });
 document.addEventListener("onPlayerChangedEvent", function (e) {
   gBars.OnPlayerChanged(e);

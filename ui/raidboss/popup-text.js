@@ -7,6 +7,7 @@ class PopupText {
     this.triggers = [];
     this.timers = [];
     this.inCombat = false;
+    this.resetWhenOutOfCombat = true;
 
     this.kMaxRowsOfText = 2;
   }
@@ -15,14 +16,15 @@ class PopupText {
     this.timelineLoader = timelineLoader;
   }
 
-  OnPlayerChange(e) {
-    if (!this.init) {
-      this.init = true;
-      this.infoText = document.getElementById('popup-text-info');
-      this.alertText = document.getElementById('popup-text-alert');
-      this.alarmText = document.getElementById('popup-text-alarm');
-    }
+  OnDocumentLoad() {
+    this.init = true;
+    this.infoText = document.getElementById('popup-text-info');
+    this.alertText = document.getElementById('popup-text-alert');
+    this.alarmText = document.getElementById('popup-text-alarm');
+    this.ReloadTimelines();
+  }
 
+  OnPlayerChange(e) {
     if (this.job != e.detail.job || this.me != e.detail.name)
       this.OnJobChange(e);
   }
@@ -71,7 +73,7 @@ class PopupText {
 
   ReloadTimelines() {
     // Datafiles, job, and zone must be loaded.
-    if (!this.triggerSets || !this.me || !this.zoneName)
+    if (!this.triggerSets || !this.me || !this.zoneName || !this.init)
       return;
 
     this.Reset();
@@ -80,6 +82,7 @@ class PopupText {
     this.triggers = [];
     var timelineFiles = [];
     var timelines = [];
+    this.resetWhenOutOfCombat = true;
 
     // Recursively/iteratively process timeline entries for triggers.
     // Functions get called with data, arrays get iterated, strings get appended.
@@ -104,6 +107,8 @@ class PopupText {
           timelineFiles.push(set.timelineFile);
         if (set.timeline)
           addTimeline(set.timeline);
+        if (set.resetWhenOutOfCombat !== undefined)
+          this.resetWhenOutOfCombat &= set.resetWhenOutOfCombat;
       }
     }
 
@@ -135,13 +140,36 @@ class PopupText {
     this.ReloadTimelines();
   }
 
-  OnInCombat(e) {
-    var inCombat = e.detail.inGameCombat;
+  OnInCombatChange(inCombat) {
+    if (inCombat || this.resetWhenOutOfCombat)
+      this.SetInCombat(inCombat);
+  }
+
+  SetInCombat(inCombat) {
+    // Stop timers when stopping combat to stop any active timers that
+    // are delayed.  However, also reset when starting combat.
+    // This prevents late attacks from affecting |data| which
+    // throws off the next run, potentially.
     if (this.inCombat == inCombat)
       return;
     this.inCombat = inCombat;
-    if (!this.inCombat)
+    if (!this.inCombat) {
+      this.StopTimers();
+      this.timelineLoader.StopCombat();
+    }
+    if (this.inCombat)
       this.Reset();
+  }
+
+  ShortNamify(name) {
+    // TODO: make this unique among the party in case of first name collisions.
+    // TODO: probably this should be a general cactbot utility.
+
+    if (name in Options.PlayerNicks) {
+      return Options.PlayerNicks[name];
+    }
+    var idx = name.indexOf(' ');
+    return idx < 0 ? name : name.substr(0, idx);
   }
 
   Reset() {
@@ -149,8 +177,14 @@ class PopupText {
       me: this.me,
       job: this.job,
       role: this.role,
+      ShortName: this.ShortNamify,
+      StopCombat: (function() { this.SetInCombat(false); }).bind(this),
       ParseLocaleFloat: function(s) { return Regexes.ParseLocaleFloat(s); },
     };
+    this.StopTimers();
+  }
+
+  StopTimers() {
     for (var i = 0; i < this.timers.length; ++i)
       window.clearTimeout(this.timers[i]);
     this.timers = [];
@@ -367,6 +401,9 @@ class PopupTextGenerator {
 
 var gPopupText;
 
+window.addEventListener("load", function(e) {
+  gPopupText.OnDocumentLoad(e);
+});
 document.addEventListener("onPlayerChangedEvent", function(e) {
   gPopupText.OnPlayerChange(e);
 });
@@ -374,7 +411,7 @@ document.addEventListener("onZoneChangedEvent", function(e) {
   gPopupText.OnZoneChange(e);
 });
 document.addEventListener("onInCombatChangedEvent", function (e) {
-  gPopupText.OnInCombat(e);
+  gPopupText.OnInCombatChange(e.detail.inGameCombat);
 });
 document.addEventListener("onLogEvent", function(e) {
   gPopupText.OnLog(e);

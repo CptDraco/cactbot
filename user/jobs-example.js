@@ -1,7 +1,7 @@
 // Rename this file to `jobs.js` and edit it to change the jobs ui.
 
 // The language that you play FFXIV in.
-Options.Language = 'en';
+Options.Language = 'en'
 
 // If true, the bars are all made translucent when out of combat.
 Options.LowerOpacityOutOfCombat = true
@@ -43,7 +43,9 @@ Options.BigBuffBorderSize = 1
 // The distance that offensive spells such as Verareo, Bio, etc are castable.
 Options.FarThresholdOffence = 24
 // When MP falls below this, the MP bar is highlighted with the .low CSS class on dark knight.
-Options.DRKLowMPThreshold = 4800
+Options.DrkLowMPThreshold = 4800
+// When MP falls below this, the MP bar is highlighted with the .low CSS class on paladin.
+Options.PldLowMPThreshold = 2880
 
 // When TP falls below this, the TP bar is highlighted with the .low CSS class.
 Options.TPInvigorateThreshold = 600
@@ -51,3 +53,43 @@ Options.TPInvigorateThreshold = 600
 Options.LowHealthThresholdPercent = 0.2
 // When health falls below this, the health bar is highlighted with the .mid CSS class.
 Options.MidHealthThresholdPercent = 0.8
+
+
+// This option, if set to true, makes the jobs module only show buffs, and
+// hides bars and procs.  This is for folks who prefer to use the in game
+// hp/mp/tp bars and jobs gauges.  Using this option also removes the left
+// side of the buff bar (see PerBuffOptions for details), and any buff that
+// would have been on the left is now sorted as if it were on the right.
+Options.JustBuffTracker = true
+
+// Overrides for all of the "big buffs" that appear to the left or right
+// of the hp/mp bars.  This is stuff like trick/embolden/devotion/etc.
+Options.PerBuffOptions = {
+  // The name of the buff to override.  These available buffs are:
+  // trick, litany, embolden, balance, chain, hyper, sight, brotherhood,
+  // devotion, requiem
+  trick: {
+    // By default everything is on the right.  This puts the icon on the
+    // left for better visibility.
+    side: 'left',
+
+    // The border color.  See: https://www.google.com/search?q=color+picker
+    // This example sets trick to use a white border.
+    borderColor: '#FFFFFF',
+
+    // The icon to use.  This is a url or a data url like this.  This
+    // example sets trick to use a bright red icon instead.
+    icon: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAySURBVEhL7c0xEQAgDAAxhHSsf2d4QMJPbLnLnnNnvxIkQRIkQRIkQRIkQRIkQfoczD4cGLQ9QOmZGwAAAABJRU5ErkJggg==',
+
+    // If true (instead of false here), this will hide the buff and
+    // prevent it from being shown.
+    hide: false,
+
+    // sortKey controls the order of the buffs when multiple buffs are shown.
+    // Smaller numbers are higher priority and will be shown closer to
+    // the middle.  The existing buffs are ordered 0-10, but you can use any
+    // numerical value you want here, including negatives.
+    // This example sets trick to be a very high priority.
+    sortKey: 1000,
+  },
+}
