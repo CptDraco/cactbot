@@ -86,6 +86,49 @@
       },
     },
     {
+      id: 'O8S Single Wing of Destruction',
+      regex: / 14:28F[EF]:Kefka starts using Wings Of Destruction/,
+      infoText: 'Single Wing',
+      tts: 'single wing',
+    },
+    {
+      id: 'O8S Ultimate Embrace',
+      regex: / 14:2910:Kefka starts using Ultimate Embrace on (\y{Name})/,
+      alertText: function(data, matches) {
+        if (matches[1] == data.me)
+          return 'Embrace on YOU';
+      },
+      infoText: function(data, matches) {
+        if (matches[1] == data.me)
+          return;
+        if (data.role == 'healer' || data.role == 'tank')
+          return 'Embrace on ' + data.ShortName(matches[1]);
+      },
+      tts: function(data, matches) {
+        if (matches[1] == data.me || data.role == 'healer' || data.role == 'tank')
+          return 'embrace';
+      },
+    },
+    {
+      // 28E8: clown hyperdrive, 2912: god hyperdrive
+      id: 'O8S Hyperdrive',
+      regex: / 14:(?:28E8|2912):Kefka starts using Hyperdrive on (\y{Name})/,
+      alertText: function(data, matches) {
+        if (matches[1] == data.me)
+          return 'Hyperdrive on YOU';
+      },
+      infoText: function(data, matches) {
+        if (matches[1] == data.me)
+          return;
+        if (data.role == 'healer' || data.role == 'tank')
+          return 'Hyperdrive on ' + data.ShortName(matches[1]);
+      },
+      tts: function(data, matches) {
+        if (matches[1] == data.me || data.role == 'healer' || data.role == 'tank')
+          return 'hyperdrive';
+      },
+    },
+    {
       id: 'O8S Indulgent Will',
       regex: / 14:28E5:Graven Image starts using Indulgent Will on (\y{Name})/,
       condition: function(data, matches) { return data.me == matches[1]; },
@@ -100,128 +143,173 @@
       tts: 'sleep',
     },
     {
-      // Most thunders and blizzards are used multiple times, so suppress
-      // any duplicates.
-      // TODO: raidboss really needs a suppressSeconds that doesn't let
-      // the same trigger fire for X time.
-      regex: /14:....:Kefka starts using Thrumming Thunder/,
-      delaySeconds: 1,
+      id: 'O8S Mana Charge',
+      regex: / 14:28D1:Kefka starts using Mana Charge/,
       run: function(data) {
-        delete data.suppressThunder;
+        delete data.lastFire;
+        delete data.lastThunder;
+        delete data.lastIce;
+        delete data.lastIceDir;
+        delete data.manaReleaseText;
       },
     },
     {
-      // Most thunders are blizzards are used multiple times, so suppress
-      // any duplicates.
-      // TODO: raidboss really needs a suppressSeconds that doesn't let
-      // the same trigger fire for X time.
-      regex: /14:....:Kefka starts using Blizzard Blitz/,
-      delaySeconds: 1,
+      id: 'O8S Mana Release',
+      regex: / 14:28D2:Kefka starts using Mana Release/,
+      preRun: function(data) {
+        if (data.lastFire) {
+          data.manaReleaseText = data.lastFire;
+          return;
+        }
+        if (!data.lastIceDir)
+          return;
+        data.manaReleaseText = data.lastThunder + ', ' + data.lastIceDir;
+      },
+      infoText: function(data) { return data.manaReleaseText; },
+      tts: function(data) { return data.manaReleaseText; },
+    },
+    {
+      // From ACT log lines, there's not any way to know the fire type as it's used.
+      // The ability id is always 14:28CE:Kefka starts using Flagrant Fire on Kefka.
+      // However, you can remind forgetful people during mana release and figure out
+      // the type based on the damage it does.
+      //
+      // 28CE: ability id on use
+      // 28CF: damage from mana charge
+      // 2B32: damage from mana release
+      id: 'O8S Fire Spread',
+      regex: /1[56]:\y{ObjectId}:Kefka:28CF:Flagrant Fire:/,
+      suppressSeconds: 40,
       run: function(data) {
-        delete data.suppressBlizzard;
+        data.lastFire = {
+          en: 'Spread',
+        }[data.lang];
       },
     },
     {
+      // 28CE: ability id on use
+      // 28D0: damage from mana charge
+      // 2B33: damage from mana release
+      id: 'O8S Fire Stack',
+      regex: /1[56]:\y{ObjectId}:Kefka:28D0:Flagrant Fire:/,
+      suppressSeconds: 40,
+      run: function(data) {
+        data.lastFire = {
+          en: 'Stack',
+        }[data.lang];
+      },
+    },
+    {
+      // 28CA: mana charge (both types)
+      // 28CD: mana charge
+      // 2B31: mana release
       id: 'O8S Thrumming Thunder Real',
       regex: /14:(?:28CD|2B31):Kefka starts using Thrumming Thunder/,
-      infoText: function(data) {
-        if (data.suppressThunder)
-          return;
-        return 'True Thunder';
+      suppressSeconds: 40,
+      preRun: function(data) {
+        data.lastThunder = {
+          en: 'True Thunder',
+          fr: 'Vraie foudre',
+        }[data.lang];
       },
-      tts: function (data) {
-        if (data.suppressThunder)
-          return;
-        return 'true';
-      },
-      run: function(data) {
-        data.suppressThunder = true;
-      },
+      infoText: function(data) { return data.lastThunder; },
+      tts: function(data) { return data.lastThunder; },
     },
     {
+      // 28CA: mana charge (both types)
+      // 28CB, 28CC: mana charge
+      // 2B2F, 2B30: mana release
       id: 'O8S Thrumming Thunder Fake',
       regex: /14:(?:28CC|2B30):Kefka starts using Thrumming Thunder/,
-      infoText: function(data) {
-        if (data.suppressThunder)
-          return;
-        return 'Fake Thunder';
+      suppressSeconds: 40,
+      preRun: function(data) {
+        data.lastThunder = {
+          en: 'Fake Thunder',
+          fr: 'Fausse foudre',
+        }[data.lang];
       },
-      tts: function (data) {
-        if (data.suppressThunder)
-          return;
-        return 'fake';
-      },
-      run: function(data) {
-        data.suppressThunder = true;
-      },
+      infoText: function(data) { return data.lastThunder; },
+      tts: function(data) { return data.lastThunder; },
     },
     {
+      // 28C7: mana charge (all ice types)
+      // 28C5, 28C6: mana charge
+      // 2B2B, 2B2E: mana release
       id: 'O8S Blizzard Fake Donut',
       regex: /14:(?:28C5|2B2B):Kefka starts using Blizzard Blitz/,
-      infoText: function(data) {
-        if (data.suppressBlizzard)
-          return;
-        return 'Fake Ice: Get Out';
+      suppressSeconds: 40,
+      preRun: function(data) {
+        data.lastIce = {
+          en: 'Fake Ice',
+          fr: 'Fausse glace',
+        }[data.lang];
+        data.lastIceDir = {
+          en: 'Get Out',
+          fr: 'sortir',
+        }[data.lang];
       },
-      tts: function (data) {
-        if (data.suppressBlizzard)
-          return;
-        return 'fake';
-      },
-      run: function(data) {
-        data.suppressBlizzard = true;
-      },
+      infoText: function(data) { return data.lastIce + ': ' + data.lastIceDir; },
+      tts: function(data) { return data.lastIce; },
     },
     {
+      // 28C7: mana charge (all ice types)
+      // 28C9: mana charge
+      // 2B2E: mana release
       id: 'O8S Blizzard True Donut',
       regex: /14:(?:28C9|2B2E):Kefka starts using Blizzard Blitz/,
-      infoText: function(data) {
-        if (data.suppressBlizzard)
-          return;
-        return 'True Ice: Get In';
+      suppressSeconds: 40,
+      preRun: function(data) {
+        data.lastIce = {
+          en: 'True Ice',
+          fr: 'Vraie glace',
+        }[data.lang];
+        data.lastIceDir = {
+          en: 'Get In',
+          fr: 'rentrer dedans',
+        }[data.lang];
       },
-      tts: function (data) {
-        if (data.suppressBlizzard)
-          return;
-        return 'true';
-      },
-      run: function(data) {
-        data.suppressBlizzard = true;
-      },
+      infoText: function(data) { return data.lastIce + ': ' + data.lastIceDir; },
+      tts: function(data) { return data.lastIce; },
     },
     {
+      // 28C7: mana charge (all ice types)
+      // 28C3, 28C4: mana charge
+      // 2B29, 2B2A: mana release
       id: 'O8S Blizzard Fake Near',
       regex: /14:(?:28C4|2B2A):Kefka starts using Blizzard Blitz/,
-      infoText: function(data) {
-        if (data.suppressBlizzard)
-          return;
-        return 'Fake Ice: Get In';
+      suppressSeconds: 40,
+      preRun: function(data) {
+        data.lastIce = {
+          en: 'Fake Ice',
+          fr: 'Fausse glace',
+        }[data.lang];
+        data.lastIceDir = {
+          en: 'Get In',
+          fr: 'rentrer dedans',
+        }[data.lang];
       },
-      tts: function (data) {
-        if (data.suppressBlizzard)
-          return;
-        return 'fake';
-      },
-      run: function(data) {
-        data.suppressBlizzard = true;
-      },
+      infoText: function(data) { return data.lastIce + ': ' + data.lastIceDir; },
+      tts: function(data) { return data.lastIce; },
     },
     {
+      // 28C7: mana charge (all ice types)
+      // 28C8: mana charge
+      // 2B2D: mana release
       id: 'O8S Blizzard True Near',
       regex: /14:(?:28C8|2B2D):Kefka starts using Blizzard Blitz/,
-      infoText: function(data) {
-        if (data.suppressBlizzard)
-          return;
-        return 'True Ice: Get Out';
+      suppressSeconds: 40,
+      preRun: function(data) {
+        data.lastIce = {
+          en: 'True Ice',
+          fr: 'Vraie glace',
+        }[data.lang];
+        data.lastIceDir = {
+          en: 'Get Out',
+          fr: 'sortir',
+        }[data.lang];
       },
-      tts: function (data) {
-        if (data.suppressBlizzard)
-          return;
-        return 'true';
-      },
-      run: function(data) {
-        data.suppressBlizzard = true;
-      },
+      infoText: function(data) { return data.lastIce + ': ' + data.lastIceDir; },
+      tts: function(data) { return data.lastIce; },
     },
   ]
 }]
